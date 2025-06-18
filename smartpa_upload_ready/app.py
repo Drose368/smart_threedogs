@@ -5,10 +5,10 @@ from routes.api import api
 app = Flask(__name__)
 CORS(app)
 
-# ✅ 添加一个首页路由，测试是否运行成功
+# ✅ 添加这个首页路由，解决白屏问题
 @app.route("/")
 def index():
-    return "SmartPA 后端已部署成功 🎉"
+    return "SmartPA 后端部署成功！🎉"
 
 app.register_blueprint(api)
 
