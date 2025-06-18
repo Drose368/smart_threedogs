@@ -1,13 +1,17 @@
-import os
 from flask import Flask
 from flask_cors import CORS
-from routes.api import api  # ← 注册蓝图
+from routes.api import api  # 注册蓝图
 
 app = Flask(__name__)
 CORS(app)
 
+# 注册蓝图
 app.register_blueprint(api)
 
+# ✅ 加一个默认首页
+@app.route('/')
+def home():
+    return "部署成功啦！这是聪明的三狗 SmartPA 🎉"
+
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))  # Render 会自动注入 PORT 环境变量
-    app.run(host="0.0.0.0", port=port)
+    app.run(debug=True)
