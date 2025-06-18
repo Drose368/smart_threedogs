@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SmartPA AI 助理</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 h-screen overflow-hidden">
+  <div class="flex h-full">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-white border-r flex flex-col p-4">
+      <h1 class="text-lg font-semibold mb-6">🐶 三只狗 🐶</h1>
+      <button onclick="newChat()" class="bg-blue-600 hover:bg-blue-700 text-white rounded px-4 py-2 mb-2 text-sm">+ 新建对话</button>
+      <button onclick="clearAllChats()" class="bg-red-100 hover:bg-red-200 text-red-600 rounded px-4 py-2 mb-4 text-sm">🧹 清空所有对话</button>
+      <div id="historyList" class="flex-1 overflow-y-auto text-sm space-y-2"></div>
+    </aside>
+
+    <!-- Main chat area -->
+    <main class="flex-1 flex flex-col">
+      <div id="chatBox" class="flex-1 overflow-y-auto px-6 py-4 space-y-4 bg-white"></div>
+      <div class="border-t bg-gray-50 p-4">
+        <div class="max-w-3xl mx-auto flex flex-col gap-2">
+          <select id="task" class="p-2 border rounded text-sm">
+            <option value="free_chat">🐕三只狗🐕</option>
+            <option value="chat_roleplay">御用聊天师林狗🐕</option>
+            <option value="prd">产品需求文档（PRD）</option>
+            <option value="meeting_summary">会议纪要总结</option>
+            <option value="glossary">术语解释</option>
+            <option value="user_persona">用户画像生成</option>
+            <option value="user_analysis">用户需求分析</option>
+            <option value="kickoff_plan">项目启动计划</option>
+            <option value="competitor_analysis">竞品分析报告</option>
+            <option value="swot">SWOT分析</option>
+            <option value="storyboard">故事板生成</option>
+          </select>
+          <textarea id="input" rows="2" placeholder="请输入内容，Enter发送，Shift+Enter换行" class="w-full p-3 border rounded resize-none bg-white text-sm"></textarea>
+          <div class="flex gap-2">
+            <button onclick="sendMessage()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">发送</button>
+            <button id="saveBtn" disabled class="bg-gray-400 text-white px-4 py-2 rounded text-sm cursor-not-allowed">保存</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+<script>
+  let sessionId = generateId();
+  let currentTask = "prd";
+  let chatHistory = [];
+  let lastReply = "";
+  let sessions = JSON.parse(localStorage.getItem("chat_sessions") || "{}");
+
+  const inputEl = document.getElementById("input");
+  const chatBox = document.getElementById("chatBox");
+  const saveBtn = document.getElementById("saveBtn");
+  const historyList = document.getElementById("historyList");
+
+  function generateId() {
+    return "sess_" + Date.now();
+  }
+
+  function clearAllChats() {
+    if (confirm("确定要清空所有对话？此操作无法恢复")) {
+      localStorage.removeItem("chat_sessions");
+      sessions = {};
+      newChat();
+    }
+  }
+
+  function renderHistoryList() {
+    historyList.innerHTML = "";
+    Object.keys(sessions).forEach(id => {
+      const label = sessions[id].title || "未命名对话";
+      const container = document.createElement("div");
+      container.className = "flex items-center justify-between bg-gray-50 hover:bg-gray-100 px-2 py-1 rounded";
+
+      const btn = document.createElement("button");
+      btn.textContent = label.length > 20 ? label.slice(0, 20) + "..." : label;
+      btn.className = "text-left flex-1";
+      btn.onclick = () => loadSession(id);
+
+      const actions = document.createElement("div");
+      actions.className = "flex gap-1";
+
+      const renameBtn = document.createElement("button");
+      renameBtn.innerHTML = "✏️";
+      renameBtn.title = "重命名";
+      renameBtn.onclick = () => {
+        const newTitle = prompt("请输入新名称：", sessions[id].title || "");
+        if (newTitle) {
+          sessions[id].title = newTitle;
+          saveSessions();
+          renderHistoryList();
+        }
+      };
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.innerHTML = "🗑️";
+      deleteBtn.title = "删除对话";
+      deleteBtn.onclick = () => {
+        if (confirm("确定删除此对话？")) {
+          delete sessions[id];
+          saveSessions();
+          renderHistoryList();
+          if (id === sessionId) newChat();
+        }
+      };
+
+      actions.append(renameBtn, deleteBtn);
+      container.append(btn, actions);
+      historyList.appendChild(container);
+    });
+  }
+
+  function saveSessions() {
+    localStorage.setItem("chat_sessions", JSON.stringify(sessions));
+  }
+
+  function newChat() {
+    sessionId = generateId();
+    chatHistory = [];
+    lastReply = "";
+    saveBtn.disabled = true;
+    saveBtn.classList.add("cursor-not-allowed", "bg-gray-400");
+    saveBtn.classList.remove("bg-green-600", "hover:bg-green-700");
+    sessions[sessionId] = { title: "新对话", history: [] };
+    saveSessions();
+    renderChat();
+    renderHistoryList();
+  }
+
+  function loadSession(id) {
+    sessionId = id;
+    chatHistory = sessions[id].history || [];
+    renderChat();
+  }
+
+  function renderChat() {
+    chatBox.innerHTML = "";
+    chatHistory.forEach(item => {
+      const div = document.createElement("div");
+      div.className = "rounded px-4 py-3 text-sm whitespace-pre-wrap shadow border max-w-3xl mx-auto " +
+        (item.role === "user" ? "bg-gray-100 text-right border-gray-200" : "bg-white text-left border-gray-100");
+      div.innerHTML = (item.role === "user" ? "<strong></strong> " : "<strong>🐕</strong> ") + item.content;
+      chatBox.appendChild(div);
+    });
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  function appendMessage(role, content) {
+    if (!sessions[sessionId]) sessions[sessionId] = { title: "未命名", history: [] };
+    const msg = { role, content };
+    chatHistory.push(msg);
+    sessions[sessionId].history = chatHistory;
+    if (role === "user" && !sessions[sessionId].title) {
+      sessions[sessionId].title = content.slice(0, 20);
+    }
+    saveSessions();
+    renderChat();
+  }
+
+  async function sendMessage() {
+    const input = inputEl.value.trim();
+    currentTask = document.getElementById("task").value;
+    if (!input) return alert("❗ 请输入内容");
+
+    appendMessage("user", input);
+    inputEl.value = "";
+    inputEl.focus();
+
+    appendMessage("assistant", "🐕 正在生成中...");
+
+    try {
+      const res = await fetch("http://127.0.0.1:5000/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: input,
+          task_type: currentTask,
+          session_id: sessionId
+        })
+      });
+
+      const data = await res.json();
+      chatHistory.pop();
+      if (data.reply) {
+        appendMessage("assistant", data.reply);
+        lastReply = data.reply;
+        saveBtn.disabled = false;
+        saveBtn.classList.remove("cursor-not-allowed", "bg-gray-400");
+        saveBtn.classList.add("bg-green-600", "hover:bg-green-700");
+      } else {
+        appendMessage("assistant", "❌ AI 回复失败");
+      }
+    } catch (err) {
+      chatHistory.pop();
+      appendMessage("assistant", "❌ 网络错误：" + err.message);
+    }
+  }
+
+  saveBtn.addEventListener("click", async () => {
+    if (!lastReply) return;
+    try {
+      const res = await fetch("http://127.0.0.1:5000/api/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: lastReply,
+          task_type: currentTask,
+          session_id: sessionId
+        })
+      });
+
+      const data = await res.json();
+      if (data.file_url) {
+        window.open("http://127.0.0.1:5000" + data.file_url, "_blank");
+      } else {
+        alert("❌ 保存失败");
+      }
+    } catch (err) {
+      alert("❌ 请求出错：" + err.message);
+    }
+  });
+
+  inputEl.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  renderHistoryList();
+  newChat();  // 初始化
+</script>
+</body>
+</html>
